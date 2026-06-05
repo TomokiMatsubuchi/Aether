@@ -1,0 +1,21 @@
+{
+  "id": "05999fe0-4469-4c28-b5af-f2a96a900939",
+  "title": "使える？",
+  "workdir": "/root/workspace/session_apps",
+  "messages": [
+    {
+      "role": "user",
+      "content": "使える？",
+      "timestamp": 1780591554726
+    },
+    {
+      "role": "assistant",
+      "content": "CLI エージェントとして起動しています。\n\n現在の作業ディレクトリは `/root/workspace/session_apps` で、ここにあるファイルの読み書きが可能です。何かお手伝いできることはありますか？",
+      "timestamp": 1780591560280
+    }
+  ],
+  "createdAt": 1780591541399,
+  "updatedAt": 1780591560280,
+  "lastMessage": "使える？",
+  "engine": "codex"
+}

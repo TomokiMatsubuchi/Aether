@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aether Studio</string>
+    <!-- Chat Screen -->
+    <string name="new_session">新しいセッション</string>
+    <string name="sessions">セッション一覧</string>
+    <string name="selected_image">選択された画像</string>
+    <string name="sent_image">送信された画像</string>
+    <string name="remove_image">画像を削除</string>
+    <string name="select_image">画像を選択</string>
+    <string name="message_aether_placeholder">Aetherにメッセージを送信…</string>
+    <string name="send">送信</string>
+    <string name="stop">停止</string>
+    <string name="aether_studio">Aether Studio</string>
+    <string name="app_tagline">外出先でも使える次世代AIコーディングスタジオ</string>
+    <string name="quick_actions">クイックアクション</string>
+    <string name="browse_project">プロジェクトを表示</string>
+    <string name="browse_project_desc">コードベースのフォルダを探索</string>
+    <string name="ask_aether">Aetherに質問</string>
+    <string name="ask_aether_desc">ワークスペースをクエリ</string>
+    <string name="ask_aether_prompt">このワークスペースのコードベースの構造を説明してください。</string>
+    <string name="write_code">コードを書く</string>
+    <string name="write_code_desc">クラスやロジックを作成</string>
+    <string name="write_code_prompt">このワークスペースで新しい機能を作成するのを手伝ってください。</string>
+    <string name="optimize">最適化</string>
+    <string name="optimize_desc">リファクタリングとバグ修正</string>
+    <string name="optimize_prompt">このコードを分析し、潜在的な問題を見つけてください。</string>
+    <string name="aether_thinking">Aetherが考え中…</string>
+    <string name="system_role">システム</string>
+    <string name="user_role">あなた</string>
+    <string name="assistant_role">Aether</string>
+
+    <!-- Sessions Screen / Dialog -->
+    <string name="back">戻る</string>
+    <string name="new_btn">新規</string>
+    <string name="no_sessions_yet">セッションはありません</string>
+    <string name="session_name_optional">セッション名（任意）</string>
+    <string name="select_project">プロジェクトの選択:</string>
+    <string name="up">上へ</string>
+    <string name="no_subdirectories">サブディレクトリはありません</string>
+    <string name="create">作成</string>
+    <string name="cancel">キャンセル</string>
+    <string name="delete_session_title">セッションを削除しますか？</string>
+    <string name="delete_session_confirm">「%1$s」は完全に削除されます。</string>
+    <string name="delete">削除</string>
+    <string name="active">アクティブ</string>
+
+    <!-- CodexNavHost -->
+    <string name="sessions_count">%1$d 個のセッション</string>
+    <string name="sessions_count_plural">%1$d 個のセッション</string>
+    <string name="connected">接続中</string>
+    <string name="disconnected">切断</string>
+    <string name="check_connection">接続を確認</string>
+    <string name="server_url">サーバーURL</string>
+    <string name="apply">適用</string>
+
+    <!-- ServerManager & Services -->
+    <string name="starting_server">サーバーを起動しています…</string>
+    <string name="server_ready">サーバーの準備完了</string>
+    <string name="starting_node_server">Node.jsサーバーを起動しています…</string>
+    <string name="starting_fallback_server">代替サーバーを起動しています…</string>
+    <string name="server_ready_fallback">サーバーの準備完了 (代替)</string>
+    <string name="server_error">サーバーエラー: %1$s</string>
+    <string name="notification_channel_name">Aether チャット通知</string>
+    <string name="notification_channel_desc">AIの回答や入力要求に関する通知</string>
+    <string name="server_service_name">Aether サーバーサービス</string>
+    <string name="server_service_desc">埋め込まれたCodex HTTPサーバーをバックグラウンドで永続的に実行し続けます。</string>
+    <string name="server_running_title">Aether サーバーが起動中</string>
+    <string name="server_running_desc">バックグラウンドHTTPサーバーがアクティブです。</string>
+    
+    <!-- CodexClient -->
+    <string name="no_output">(出力なし)</string>
+    <string name="error_prefix">エラー: %1$s</string>
+    <string name="server_error_prefix">サーバーエラー: %1$s</string>
+    <string name="conn_error_desc">エラー: %1$s\nサーバーは起動していますか？ (node server/index.js)</string>
+
+    <!-- Notifications -->
+    <string name="notification_response_complete_title">AIの応答が完了しました</string>
+    <string name="notification_response_complete_desc">セッション: %1$s で次の入力が可能です。</string>
+    <string name="notification_response_error_title">応答中にエラーが発生しました</string>
+    <string name="notification_response_error_desc">セッション: %1$s - %2$s</string>
+    <string name="notification_server_error_title">サーバーエラーが発生しました</string>
+    <string name="notification_conn_error_title">通信エラーが発生しました</string>
+    <string name="connection_failed">通信に失敗しました</string>
+</resources>

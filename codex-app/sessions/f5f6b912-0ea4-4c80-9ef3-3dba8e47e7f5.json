@@ -1,0 +1,21 @@
+{
+  "id": "f5f6b912-0ea4-4c80-9ef3-3dba8e47e7f5",
+  "title": "これで動いてる？",
+  "workdir": "/root/workspace/session_apps",
+  "messages": [
+    {
+      "role": "user",
+      "content": "これで動いてる？",
+      "timestamp": 1780329154525
+    },
+    {
+      "role": "assistant",
+      "content": "はい、正常に動作しています。\n\n現在のシステム状況を確認したところ、以下の通りです。\n- **実行中のタスク**: 現���、バックグラウンドで稼働しているタスクはありません。\n- **ワークスペースの状況**: スクラッチディレクトリ（`/root/.gemini/antigravity-cli/scratch`）は現在空です。\n\nAIアシスタントとの接続およびコマンドの実行権限などはすべて準備できております。何か作成したいアプリケーションや、調査・実行したいコードなどがありましたら、いつでもご指示ください。",
+      "timestamp": 1780329173646
+    }
+  ],
+  "createdAt": 1780329126905,
+  "updatedAt": 1780329173646,
+  "lastMessage": "これで動いてる？",
+  "engine": "antigravity"
+}

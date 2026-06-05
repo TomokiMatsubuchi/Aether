@@ -1,0 +1,61 @@
+{
+  "id": "f94bd603-c9e8-4e2c-aedf-bfea38112fd8",
+  "title": "動いてる？",
+  "workdir": "/root/workspace/session_apps",
+  "messages": [
+    {
+      "role": "user",
+      "content": "動いてる？",
+      "timestamp": 1780592388075
+    },
+    {
+      "role": "assistant",
+      "content": "はい、動いています！\n\n何かお手伝いできることはありますか？プログラムの作成、デバッグ、あるいは質問への回答など、どのようなことでもお気軽にお申し付けください。",
+      "timestamp": 1780592398386
+    },
+    {
+      "role": "user",
+      "content": "これってどこのビールかわかる？",
+      "timestamp": 1780593692098
+    },
+    {
+      "role": "assistant",
+      "content": "(no output)",
+      "timestamp": 1780593714706
+    },
+    {
+      "role": "user",
+      "content": "これってどこのビールかわかる？",
+      "timestamp": 1780593878902
+    },
+    {
+      "role": "assistant",
+      "content": "(no output)",
+      "timestamp": 1780593901608
+    },
+    {
+      "role": "user",
+      "content": "これってどこのビールかわかる？",
+      "timestamp": 1780593997132
+    },
+    {
+      "role": "assistant",
+      "content": "(no output)",
+      "timestamp": 1780594010897
+    },
+    {
+      "role": "user",
+      "content": "これってどこのビールかわかる？",
+      "timestamp": 1780594119421
+    },
+    {
+      "role": "assistant",
+      "content": "これは **COEDO（コエド）ビール** の **「瑠璃（Ruri）」** というピルスナーですね。\n\n**COEDOビールについて：**\n- 醸造所：埼玉県川越市（「小江戸」の愛称で知られる川越にちなんで名付けられた）\n- ジャンル：ジャパニーズクラフトビールの先駆け的な存在\n- 瑠璃は「Super Premium Japanese Craft Beer」をうたう定番ピルスナーで、ラベルに描かれている深い青色はラピスラズリ（瑠璃石）をイメージしているそうです\n\n写真の雰囲気（白いテーブル装花、ペアリング用のカード「松烈 留樹様」など）からすると、結婚式やペアリングディナーなど、特別な席で出されているのかもしれませんね。綺麗なお料理とのマリアージュが楽しめそうです。",
+      "timestamp": 1780594137403
+    }
+  ],
+  "createdAt": 1780592381041,
+  "updatedAt": 1780594137403,
+  "lastMessage": "これってどこのビールかわかる？",
+  "engine": "codex"
+}

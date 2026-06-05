@@ -1,0 +1,40 @@
+{
+  "id": "1fdfae13-955f-47c5-be5a-59aa71f6d8bb",
+  "title": "こんばんは🌙😃❗",
+  "workdir": "/root/workspace/session_apps",
+  "messages": [
+    {
+      "role": "user",
+      "content": "こんばんは🌙😃❗",
+      "timestamp": 1780326018739
+    },
+    {
+      "role": "assistant",
+      "content": "Reading additional input from stdin...\nOpenAI Codex v0.135.0\n--------\nworkdir: /root/workspace/session_apps\nmodel: deepseek-v4-pro:cloud\nprovider: ollama_cloud\napproval: never\nsandbox: read-only\nreasoning effort: none\nreasoning summaries: none\nsession id: 019e83b3-317c-7aa1-bf0f-674933780ddb\n--------\nuser\nこんばんは🌙😃❗\nThe user is greeting me in Japanese, saying \"Good evening!\" with some emojis. I'll respond in a friendly, casual manner.\ncodex\nこんばんは！😊🌙 元気そうで何よりです！何かお手伝いできることはありますか？\ntokens used\n7,840\nこんばんは！😊🌙 元気そうで何よりです！何かお手伝いできることはありますか？",
+      "timestamp": 1780326022564
+    },
+    {
+      "role": "user",
+      "content": "あなたのモデルは？",
+      "timestamp": 1780326135148
+    },
+    {
+      "role": "assistant",
+      "content": "(no output)",
+      "timestamp": 1780326138838
+    },
+    {
+      "role": "user",
+      "content": "あなたのモデルは？",
+      "timestamp": 1780326215888
+    },
+    {
+      "role": "assistant",
+      "content": "CLI**, an open-source terminal-based coding assistant by OpenAI. The CLI doesn't expose the specific model name to me directly, so I can't tell you exactly which model is behind this session — just that it's one of OpenAI's latest models powering the agent.\n\nIf you need more detail, you can usually find the model name in the Codex CLI configuration or docs. Anything I can help you code while you're here?",
+      "timestamp": 1780326221264
+    }
+  ],
+  "createdAt": 1780326011651,
+  "updatedAt": 1780326221264,
+  "lastMessage": "あなたのモデルは？"
+}

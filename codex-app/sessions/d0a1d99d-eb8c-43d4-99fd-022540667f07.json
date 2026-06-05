@@ -1,0 +1,51 @@
+{
+  "id": "d0a1d99d-eb8c-43d4-99fd-022540667f07",
+  "title": "こんにちは",
+  "workdir": "/root/workspace/session_apps",
+  "messages": [
+    {
+      "role": "user",
+      "content": "こんにちは",
+      "timestamp": 1780326462749
+    },
+    {
+      "role": "assistant",
+      "content": "(no output)",
+      "timestamp": 1780326467129
+    },
+    {
+      "role": "user",
+      "content": "こんにちは",
+      "timestamp": 1780326473555
+    },
+    {
+      "role": "assistant",
+      "content": "Authentication required. Please visit the URL to log in:\n  https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com&code_challenge=v3lZcJyGA1LrG_dMCiiAJeST9ulmOgnEqsiuGc_N8M0&code_challenge_method=S256&prompt=consent&redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback&response_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs+openid&state=IE6RsW_yUHa76oCYPLMfog\n\nWaiting for authentication (timeout 30s)...\nOr, paste the authorization code here and press Enter:\nError: authentication timed out.",
+      "timestamp": 1780326504817
+    },
+    {
+      "role": "user",
+      "content": "hello",
+      "timestamp": 1780326675485
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! I am Antigravity, your AI coding assistant. \n\nI'm ready to help you with your coding tasks, whether that involves:\n- Creating a new project or web application from scratch.\n- Modifying, debugging, or analyzing an existing codebase.\n- Designing high-quality user interfaces with rich aesthetics.\n- Answering technical questions or planning system architectures.\n\nSince you don't have an active workspace set up yet, if we need to create a project, we can create a dedicated subdirectory inside `/root/.gemini/antigravity-cli/scratch` and set it as our active workspace.\n\nHow can I help you today?",
+      "timestamp": 1780326683745
+    },
+    {
+      "role": "user",
+      "content": "こんにちは",
+      "timestamp": 1780326761365
+    },
+    {
+      "role": "assistant",
+      "content": "こんにちは！AIコーディングアシスタントのAntigravityです。\n\n本日はどのような開発やタスクをお手伝いしましょうか？以下のようなことが行えます。\n\n* **新しいプロジェクトの作成・実装**（Webアプリケーションなど）\n* **既存コードのデバッグや機能追加**\n* **技術的な質問への回答や設計の相談**\n\n何かお手伝いできることがあれば、お気軽にお申し付けください！",
+      "timestamp": 1780326770181
+    }
+  ],
+  "createdAt": 1780326457852,
+  "updatedAt": 1780326770181,
+  "lastMessage": "こんにちは",
+  "engine": "antigravity"
+}

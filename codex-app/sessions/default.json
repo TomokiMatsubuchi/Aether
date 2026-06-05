@@ -1,0 +1,90 @@
+{
+  "id": "default",
+  "title": "say hello",
+  "messages": [
+    {
+      "role": "user",
+      "content": "say hello",
+      "timestamp": 1780141767416
+    },
+    {
+      "role": "system",
+      "content": "Error: timeout",
+      "timestamp": 1780141887431
+    },
+    {
+      "role": "user",
+      "content": "say hello in one word",
+      "timestamp": 1780142064814
+    },
+    {
+      "role": "assistant",
+      "content": "Hello",
+      "timestamp": 1780142067104
+    },
+    {
+      "role": "user",
+      "content": "say hello in Japanese",
+      "timestamp": 1780142337603
+    },
+    {
+      "role": "assistant",
+      "content": "こんにちは (Konnichiwa) 👋\n\nOr more casually: やあ (Yaa) or おはよう (Ohayou) for \"good morning\"!",
+      "timestamp": 1780142341099
+    },
+    {
+      "role": "user",
+      "content": "こんにちは",
+      "timestamp": 1780142374091
+    },
+    {
+      "role": "assistant",
+      "content": "こんにちは！何かお手伝いできることはありますか？",
+      "timestamp": 1780142377188
+    },
+    {
+      "role": "user",
+      "content": "こんにちは",
+      "timestamp": 1780142385703
+    },
+    {
+      "role": "assistant",
+      "content": "こんにちは！Codex CLI です。何かお手伝いできることはありますか？",
+      "timestamp": 1780142390041
+    },
+    {
+      "role": "user",
+      "content": "こんにちは",
+      "timestamp": 1780143117468
+    },
+    {
+      "role": "assistant",
+      "content": "こんにちは！何かお手伝いできることはありますか？",
+      "timestamp": 1780143121032
+    },
+    {
+      "role": "user",
+      "content": "say hello in one word",
+      "timestamp": 1780146056424
+    },
+    {
+      "role": "assistant",
+      "content": "Hello!",
+      "timestamp": 1780146058726
+    },
+    {
+      "role": "user",
+      "content": "say hello in one short sentence",
+      "timestamp": 1780146116452
+    },
+    {
+      "role": "assistant",
+      "content": "Reading additional input from stdin...\nOpenAI Codex v0.135.0\n--------\nworkdir: /root\nmodel: deepseek-v4-pro:cloud\nprovider: ollama_cloud\napproval: never\nsandbox: read-only\nreasoning effort: none\nreasoning summaries: none\nsession id: 019e78fa-18fc-7d20-9f43-96dc8a89066e\n--------\nuser\nsay hello in one short sentence\nThe user just wants me to say hello in one short sentence. This is a simple greeting, no need for tools or plans.\ncodex\nHey there! 👋 How can I help you today?\ntokens used\n7,793\nHey there! 👋 How can I help you today?",
+      "timestamp": 1780146119248
+    }
+  ],
+  "createdAt": 1780123234736,
+  "lastMessage": "say hello in one short sentence",
+  "updatedAt": 1780146119248,
+  "engine": "codex"
+}

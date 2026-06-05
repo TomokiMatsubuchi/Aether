@@ -1,0 +1,20 @@
+{
+  "id": "b6c0db9d-0eb8-463a-8816-1811907a470f",
+  "title": "こんにちは",
+  "workdir": "/root/workspace/session_apps",
+  "messages": [
+    {
+      "role": "user",
+      "content": "こんにちは",
+      "timestamp": 1780325881569
+    },
+    {
+      "role": "assistant",
+      "content": "Reading additional input from stdin...\nOpenAI Codex v0.135.0\n--------\nworkdir: /root/workspace/session_apps\nmodel: deepseek-v4-pro:cloud\nprovider: ollama_cloud\napproval: never\nsandbox: read-only\nreasoning effort: none\nreasoning summaries: none\nsession id: 019e83b1-1a6a-74a3-a5bc-8ac4f68289d1\n--------\nuser\nこんにちは\nThe user is greeting me in Japanese (\"こんにちは\" = \"Hello\"). I should respond in a friendly, conversational tone. This is a simple greeting, so I don't need any structured formatting or tool calls.\ncodex\nこんにちは！何かお手伝いできることはありますか？コードやファイルの編集、調査など、必要なことがあれば気軽に教えてください。\ntokens used\n7,859\nこんにちは！何かお手伝いできることはありますか？コードやファイルの編集、調査など、必要なことがあれば気軽に教えてください。",
+      "timestamp": 1780325886913
+    }
+  ],
+  "createdAt": 1780325875810,
+  "updatedAt": 1780325886913,
+  "lastMessage": "こんにちは"
+}
