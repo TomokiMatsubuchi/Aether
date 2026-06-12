@@ -41,6 +41,7 @@ fun ChatScreen(
     codexClient: CodexClient,
     onOpenDrawer: () -> Unit,
     onNewSession: () -> Unit,
+    onOpenDiffViewer: () -> Unit,
 ) {
     val context = LocalContext.current
     val messages by codexClient.messages.collectAsState()
@@ -164,6 +165,9 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenDiffViewer) {
+                        Icon(Icons.Default.Difference, stringResource(R.string.diff_viewer_title))
+                    }
                     IconButton(onClick = onNewSession) {
                         Icon(Icons.Default.Add, stringResource(R.string.new_session))
                     }

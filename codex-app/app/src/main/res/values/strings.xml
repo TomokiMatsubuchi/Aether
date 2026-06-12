@@ -82,4 +82,17 @@
     <string name="notification_server_error_title">サーバーエラーが発生しました</string>
     <string name="notification_conn_error_title">通信エラーが発生しました</string>
     <string name="connection_failed">通信に失敗しました</string>
+
+    <!-- Diff Viewer -->
+    <string name="diff_viewer_title">変更履歴 (Diff)</string>
+    <string name="git_not_tracked">Gitが初期化されていません</string>
+    <string name="git_not_tracked_desc">このプロジェクトは現在Gitで追跡されていません。Gitを初期化することで、AIによるファイルの作成や修正の差分を表示できるようになります。</string>
+    <string name="git_init_btn">Git追跡を初期化</string>
+    <string name="git_initializing">初期化中…</string>
+    <string name="no_changes">変更はありません</string>
+    <string name="no_changes_desc">AIによって作成または修正されたファイルは見つかりませんでした。</string>
+    <string name="file_modified_tag">修正</string>
+    <string name="file_added_tag">追加</string>
+    <string name="file_deleted_tag">削除</string>
+    <string name="loading_diff_text">差分を取得中…</string>
 </resources>

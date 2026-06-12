@@ -39,6 +39,16 @@ data class WorkspaceDir(
     val subdirs: List<WorkspaceDir>
 )
 
+data class GitFile(
+    val path: String,
+    val status: String
+)
+
+data class GitStatus(
+    val isGit: Boolean,
+    val files: List<GitFile>
+)
+
 class CodexClient(private val context: Context) {
     val messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val sessions = MutableStateFlow<List<Session>>(emptyList())
@@ -207,6 +217,63 @@ class CodexClient(private val context: Context) {
         }
     }
 
+    suspend fun getGitStatus(dir: String): GitStatus {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = "${serverUrl.value}/api/git/status?dir=${java.net.URLEncoder.encode(dir, "UTF-8")}"
+                val conn = URL(url).openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000; conn.readTimeout = 3000
+                val body = if (conn.responseCode == 200) conn.inputStream.bufferedReader().readText() else "{}"
+                conn.disconnect()
+                val obj = JSONObject(body)
+                val isGit = obj.optBoolean("isGit", false)
+                val filesArr = obj.optJSONArray("files") ?: JSONArray()
+                val files = (0 until filesArr.length()).map { i ->
+                    val f = filesArr.getJSONObject(i)
+                    GitFile(path = f.getString("path"), status = f.getString("status"))
+                }
+                GitStatus(isGit = isGit, files = files)
+            } catch (e: Exception) {
+                GitStatus(isGit = false, files = emptyList())
+            }
+        }
+    }
+
+    suspend fun gitInit(dir: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val json = JSONObject().apply { put("dir", dir) }
+                val conn = URL("${serverUrl.value}/api/git/init").openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000; conn.readTimeout = 3000
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
+                val code = conn.responseCode
+                conn.disconnect()
+                code in 200..299
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
+    suspend fun getGitDiff(dir: String, file: String?): String {
+        return withContext(Dispatchers.IO) {
+            try {
+                val fileParam = if (file != null) "&file=${java.net.URLEncoder.encode(file, "UTF-8")}" else ""
+                val url = "${serverUrl.value}/api/git/diff?dir=${java.net.URLEncoder.encode(dir, "UTF-8")}$fileParam"
+                val conn = URL(url).openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000; conn.readTimeout = 5000
+                val body = if (conn.responseCode == 200) conn.inputStream.bufferedReader().readText() else "{}"
+                conn.disconnect()
+                JSONObject(body).optString("diff", "")
+            } catch (e: Exception) {
+                ""
+            }
+        }
+    }
+
     fun sendMessage(content: String, imagePath: String? = null) {
         // Cancel any existing stream
         streamJob?.cancel()
@@ -216,9 +283,11 @@ class CodexClient(private val context: Context) {
         streamText.value = ""
 
         streamJob = scope.launch {
+            var conn: HttpURLConnection? = null
             try {
                 // Use SSE streaming endpoint
-                val conn = URL("${serverUrl.value}/api/chat/stream").openConnection() as HttpURLConnection
+                val urlConnection = URL("${serverUrl.value}/api/chat/stream").openConnection() as HttpURLConnection
+                conn = urlConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 120000
                 conn.requestMethod = "POST"
@@ -299,7 +368,6 @@ class CodexClient(private val context: Context) {
                         sessionId = currentSessionId.value
                     )
                 }
-                conn.disconnect()
             } catch (e: CancellationException) {
                 // Stream was cancelled, that's OK
             } catch (e: Exception) {
@@ -316,6 +384,7 @@ class CodexClient(private val context: Context) {
                     sessionId = currentSessionId.value
                 )
             } finally {
+                conn?.disconnect()
                 isLoading.value = false
             }
         }

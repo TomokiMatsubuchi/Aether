@@ -38,6 +38,26 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.10"
     }
+
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs(layout.buildDirectory.dir("generated/assets"))
+        }
+    }
+}
+
+val copyServerAssets = tasks.register<Copy>("copyServerAssets") {
+    from(file("${project.rootDir}/server")) {
+        exclude("node_modules/**")
+        exclude("sessions/**")
+        exclude("server.log")
+        exclude(".git/**")
+    }
+    into(layout.buildDirectory.dir("generated/assets/server"))
+}
+
+tasks.named("preBuild") {
+    dependsOn(copyServerAssets)
 }
 
 dependencies {
@@ -64,3 +84,4 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
+

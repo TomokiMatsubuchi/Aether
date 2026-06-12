@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import com.codexapp.network.Session
 import com.codexapp.ui.screens.ChatScreen
 import com.codexapp.ui.screens.NewSessionDialog
+import com.codexapp.ui.screens.DiffViewerScreen
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -85,6 +86,7 @@ fun CodexNavHost(serverManager: ServerManager, codexClient: CodexClient) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var showNewDialog by remember { mutableStateOf(false) }
+    var currentScreen by remember { mutableStateOf("chat") }
 
     if (showNewDialog) {
         NewSessionDialog(
@@ -95,6 +97,15 @@ fun CodexNavHost(serverManager: ServerManager, codexClient: CodexClient) {
                 showNewDialog = false
             }
         )
+    }
+
+    if (currentScreen == "diff") {
+        DiffViewerScreen(
+            codexClient = codexClient,
+            workdir = codexClient.getCurrentWorkdir(),
+            onBack = { currentScreen = "chat" }
+        )
+        return
     }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
@@ -210,6 +221,9 @@ fun CodexNavHost(serverManager: ServerManager, codexClient: CodexClient) {
                     },
                     onNewSession = {
                         showNewDialog = true
+                    },
+                    onOpenDiffViewer = {
+                        currentScreen = "diff"
                     }
                 )
             }

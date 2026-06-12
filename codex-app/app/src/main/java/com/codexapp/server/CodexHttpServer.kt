@@ -171,6 +171,9 @@ class CodexHttpServer(private val context: Context) {
                         path == "/api/workspaces" && method == "GET" -> handleWorkspaces(output, fullPath.substringAfter("?"))
                         path == "/api/chat" && method == "POST" -> handleChat(output, body)
                         path == "/api/chat/stream" && method == "POST" -> handleChatStream(output, body)
+                        path == "/api/git/status" && method == "GET" -> handleGitStatus(output, fullPath.substringAfter("?"))
+                        path == "/api/git/init" && method == "POST" -> handleGitInit(output, body)
+                        path == "/api/git/diff" && method == "GET" -> handleGitDiff(output, fullPath.substringAfter("?"))
                         else -> sendResponse(output, 404, "Not Found", """{"error":"Not found"}""", corsHeaders())
                     }
                 } catch (e: Exception) {
@@ -541,5 +544,125 @@ class CodexHttpServer(private val context: Context) {
         val response = output.toString().trim()
         appendMessage(session, "assistant", response)
         return response.ifBlank { "(no output)" }
+    }
+
+    private fun runCmd(args: List<String>, cwd: File): Pair<Int, String> {
+        return try {
+            val pb = ProcessBuilder(args)
+            pb.directory(cwd)
+            val env = pb.environment()
+            env["HOME"] = "/root"
+            System.getenv("PATH")?.let { env["PATH"] = it }
+            pb.redirectErrorStream(true)
+            val process = pb.start()
+            val output = process.inputStream.bufferedReader().readText()
+            val exitCode = process.waitFor()
+            Pair(exitCode, output.trim())
+        } catch (e: Exception) {
+            Pair(-1, e.message ?: "Execution failed")
+        }
+    }
+
+    private fun parseQuery(query: String): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        if (query.isBlank()) return result
+        query.split("&").forEach { pair ->
+            val idx = pair.indexOf("=")
+            if (idx != -1) {
+                val key = java.net.URLDecoder.decode(pair.substring(0, idx), "UTF-8")
+                val value = java.net.URLDecoder.decode(pair.substring(idx + 1), "UTF-8")
+                result[key] = value
+            }
+        }
+        return result
+    }
+
+    private fun handleGitStatus(output: OutputStream, query: String) {
+        val params = parseQuery(query)
+        val dir = params["dir"] ?: getHome()
+        val workdir = File(dir)
+        if (!workdir.exists() || !workdir.isDirectory) {
+            sendResponse(output, 404, "Not Found", """{"error":"Directory not found"}""", corsHeaders())
+            return
+        }
+
+        val (checkCode, _) = runCmd(listOf("git", "rev-parse", "--is-inside-work-tree"), workdir)
+        if (checkCode != 0) {
+            sendResponse(output, 200, "OK", """{"isGit":false,"files":[]}""", corsHeaders())
+            return
+        }
+
+        val (statusCode, statusOutput) = runCmd(listOf("git", "status", "--porcelain"), workdir)
+        val filesArr = JSONArray()
+        if (statusCode == 0 && statusOutput.isNotEmpty()) {
+            statusOutput.split("\n").forEach { line ->
+                if (line.length >= 4) {
+                    val status = line.substring(0, 2).trim()
+                    var filePath = line.substring(3).trim()
+                    if (filePath.startsWith("\"") && filePath.endsWith("\"")) {
+                        filePath = filePath.substring(1, filePath.length - 1)
+                    }
+                    filesArr.put(JSONObject().apply {
+                        put("path", filePath)
+                        put("status", status)
+                    })
+                }
+            }
+        }
+        val result = JSONObject().apply {
+            put("isGit", true)
+            put("files", filesArr)
+        }
+        sendResponse(output, 200, "OK", result.toString(), corsHeaders())
+    }
+
+    private fun handleGitInit(output: OutputStream, body: String) {
+        val input = JSONObject(body)
+        val dir = input.optString("dir", getHome())
+        val workdir = File(dir)
+        if (!workdir.exists() || !workdir.isDirectory) {
+            sendResponse(output, 404, "Not Found", """{"error":"Directory not found"}""", corsHeaders())
+            return
+        }
+
+        val (initCode, initOut) = runCmd(listOf("git", "init"), workdir)
+        if (initCode != 0) {
+            sendResponse(output, 500, "Error", """{"error":"git init failed: $initOut"}""", corsHeaders())
+            return
+        }
+
+        runCmd(listOf("git", "add", "."), workdir)
+        runCmd(listOf("git", "commit", "-m", "Initial commit by Aether"), workdir)
+
+        sendResponse(output, 200, "OK", """{"success":true}""", corsHeaders())
+    }
+
+    private fun handleGitDiff(output: OutputStream, query: String) {
+        val params = parseQuery(query)
+        val dir = params["dir"] ?: getHome()
+        val filePath = params["file"]
+        val workdir = File(dir)
+        if (!workdir.exists() || !workdir.isDirectory) {
+            sendResponse(output, 404, "Not Found", """{"error":"Directory not found"}""", corsHeaders())
+            return
+        }
+
+        if (filePath.isNullOrEmpty()) {
+            val (_, diffOut) = runCmd(listOf("git", "diff", "--no-color"), workdir)
+            sendResponse(output, 200, "OK", JSONObject().put("diff", diffOut).toString(), corsHeaders())
+            return
+        }
+
+        val (_, statusOut) = runCmd(listOf("git", "status", "--porcelain", filePath), workdir)
+        val isUntracked = statusOut.startsWith("??")
+
+        val diffArgs = if (isUntracked) {
+            listOf("git", "diff", "--no-color", "--no-index", "/dev/null", filePath)
+        } else {
+            listOf("git", "diff", "--no-color", filePath)
+        }
+
+        val (_, diffOut) = runCmd(diffArgs, workdir)
+        sendResponse(output, 200, "OK", JSONObject().put("diff", diffOut).toString(), corsHeaders())
     }
 }

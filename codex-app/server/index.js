@@ -123,7 +123,8 @@ function callCodex(messages, workdir, engine = 'codex', tempImageFile = null) {
     } else {
       const args = [
         'exec',
-        '--skip-git-repo-check'
+        '--skip-git-repo-check',
+        '--dangerously-bypass-approvals-and-sandbox'
       ]
       if (tempImageFile) {
         args.push('-i', tempImageFile)
@@ -232,12 +233,101 @@ app.post('/api/sessions/:id/engine', async c => {
   return c.json({ error: 'Not found' }, 404)
 })
 
+function runCmd(cmd, args, cwd) {
+  return new Promise((resolve) => {
+    const p = spawn(cmd, args, { cwd, env: { ...process.env, HOME: '/root' } })
+    let stdout = '', stderr = ''
+    p.stdout.on('data', d => stdout += d.toString())
+    p.stderr.on('data', d => stderr += d.toString())
+    p.on('close', code => {
+      resolve({ code, stdout: stdout.trim(), stderr: stderr.trim() })
+    })
+    p.on('error', err => {
+      resolve({ code: -1, stdout: '', stderr: err.message })
+    })
+  })
+}
+
+app.get('/api/git/status', async c => {
+  const workdir = c.req.query('dir') || HOME
+  if (!fs.existsSync(workdir)) {
+    return c.json({ error: 'Directory does not exist' }, 404)
+  }
+  const checkGit = await runCmd('git', ['rev-parse', '--is-inside-work-tree'], workdir)
+  if (checkGit.code !== 0) {
+    return c.json({ isGit: false, files: [] })
+  }
+  const statusRes = await runCmd('git', ['status', '--porcelain'], workdir)
+  const files = []
+  if (statusRes.code === 0 && statusRes.stdout) {
+    const lines = statusRes.stdout.split('\n')
+    for (const line of lines) {
+      if (line.length < 4) continue
+      const status = line.substring(0, 2).trim()
+      const filePath = line.substring(3).trim()
+      let cleanPath = filePath
+      if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
+        cleanPath = cleanPath.slice(1, -1)
+      }
+      files.push({ path: cleanPath, status })
+    }
+  }
+  return c.json({ isGit: true, files })
+})
+
+app.post('/api/git/init', async c => {
+  const { dir } = await c.req.json()
+  const workdir = dir || HOME
+  if (!fs.existsSync(workdir)) {
+    return c.json({ error: 'Directory does not exist' }, 404)
+  }
+  const initRes = await runCmd('git', ['init'], workdir)
+  if (initRes.code !== 0) {
+    return c.json({ error: 'git init failed: ' + initRes.stderr }, 500)
+  }
+  await runCmd('git', ['add', '.'], workdir)
+  await runCmd('git', ['commit', '-m', 'Initial commit by Aether'], workdir)
+  return c.json({ success: true })
+})
+
+app.get('/api/git/diff', async c => {
+  const workdir = c.req.query('dir') || HOME
+  const filePath = c.req.query('file')
+  if (!fs.existsSync(workdir)) {
+    return c.json({ error: 'Directory does not exist' }, 404)
+  }
+  if (!filePath) {
+    const diffRes = await runCmd('git', ['diff', '--no-color'], workdir)
+    return c.json({ diff: diffRes.stdout || diffRes.stderr })
+  }
+  const statusRes = await runCmd('git', ['status', '--porcelain', filePath], workdir)
+  const isUntracked = statusRes.stdout.startsWith('??')
+  let diffRes
+  if (isUntracked) {
+    diffRes = await runCmd('git', ['diff', '--no-color', '--no-index', '/dev/null', filePath], workdir)
+  } else {
+    diffRes = await runCmd('git', ['diff', '--no-color', filePath], workdir)
+  }
+  return c.json({ diff: diffRes.stdout || diffRes.stderr })
+})
+
 app.post('/api/chat', async c => {
   const { message, sessionId, imageBase64, mimeType } = await c.req.json()
   if (!message) return c.json({ error: 'Message required' }, 400)
 
   const sid = sessionId || 'default'
-  if (!sessions.has(sid)) initDefault()
+  if (!sessions.has(sid)) {
+    sessions.set(sid, {
+      id: sid,
+      title: 'New Session',
+      workdir: HOME,
+      messages: [],
+      createdAt: Date.now(),
+      lastMessage: '',
+      engine: 'codex'
+    })
+    saveSession(sid)
+  }
   const session = sessions.get(sid)
 
   session.messages.push({ role: 'user', content: message, timestamp: Date.now() })
@@ -293,7 +383,18 @@ app.post('/api/chat/stream', async c => {
   if (!message) return c.json({ error: 'Message required' }, 400)
 
   const sid = sessionId || 'default'
-  if (!sessions.has(sid)) initDefault()
+  if (!sessions.has(sid)) {
+    sessions.set(sid, {
+      id: sid,
+      title: 'New Session',
+      workdir: HOME,
+      messages: [],
+      createdAt: Date.now(),
+      lastMessage: '',
+      engine: 'codex'
+    })
+    saveSession(sid)
+  }
   const session = sessions.get(sid)
 
   session.messages.push({ role: 'user', content: message, timestamp: Date.now() })
@@ -347,7 +448,8 @@ app.post('/api/chat/stream', async c => {
     } else {
       const args = [
         'exec',
-        '--skip-git-repo-check'
+        '--skip-git-repo-check',
+        '--dangerously-bypass-approvals-and-sandbox'
       ]
       if (tempImageFile) {
         args.push('-i', tempImageFile)
@@ -360,6 +462,27 @@ app.post('/api/chat/stream', async c => {
         stdio: ['ignore', 'pipe', 'pipe']
       })
     }
+
+    stream.onAbort(() => {
+      if (!resolved) {
+        resolved = true
+        log('Stream aborted by client, killing Codex process')
+        if (codex) {
+          try {
+            codex.kill()
+          } catch (e) {
+            log(`Failed to kill Codex process: ${e.message}`)
+          }
+        }
+        cleanup()
+
+        if (fullResponse.trim()) {
+          session.messages.push({ role: 'assistant', content: fullResponse.trim(), timestamp: Date.now() })
+          session.updatedAt = Date.now()
+          saveSession(sid)
+        }
+      }
+    })
 
     let timeoutTimer = null
 
