@@ -82,4 +82,70 @@
     <string name="notification_server_error_title">サーバーエラーが発生しました</string>
     <string name="notification_conn_error_title">通信エラーが発生しました</string>
     <string name="connection_failed">通信に失敗しました</string>
+
+    <!-- Diff Viewer -->
+    <string name="diff_viewer_title">Change Log (Diff)</string>
+    <string name="git_not_tracked">Git is not initialized</string>
+    <string name="git_not_tracked_desc">This project is not currently tracked by Git. Initializing Git will allow showing the diff of files created or modified by the AI.</string>
+    <string name="git_init_btn">Initialize Git Tracking</string>
+    <string name="git_initializing">Initializing…</string>
+    <string name="no_changes">No changes</string>
+    <string name="no_changes_desc">No files created or modified by the AI were found.</string>
+    <string name="file_modified_tag">Modified</string>
+    <string name="file_added_tag">Added</string>
+    <string name="file_deleted_tag">Deleted</string>
+    <string name="loading_diff_text">Loading diff…</string>
+
+    <!-- Skills -->
+    <string name="skills">Skills</string>
+    <string name="no_skills_yet">No skills yet</string>
+    <string name="skills_desc">You can add skills to extend Aether\'s capabilities</string>
+    <string name="add_skill">Add Skill</string>
+    <string name="new_skill">New Skill</string>
+    <string name="edit_skill">Edit Skill</string>
+    <string name="skill_name">Skill Name</string>
+    <string name="skill_description">Description</string>
+    <string name="skill_author">Author</string>
+    <string name="skill_version">Version</string>
+    <string name="skill_tags_hint">Tags (comma-separated)</string>
+    <string name="delete_skill_title">Delete Skill?</string>
+    <string name="delete_skill_confirm">\"%1$s\" will be permanently deleted.</string>
+    <string name="save">Save</string>
+
+    <!-- Agent Config -->
+    <string name="agent_config">Agent Config</string>
+    <string name="model">Model</string>
+    <string name="select_model">Select Model</string>
+    <string name="temperature">Temperature</string>
+    <string name="max_tokens">Max Tokens</string>
+    <string name="system_prompt">System Prompt</string>
+    <string name="system_prompt_hint">Enter system prompt</string>
+    <string name="approval_mode">Approval Mode</string>
+    <string name="approval_ask">Ask each time</string>
+    <string name="approval_auto_approve">Auto Approve</string>
+    <string name="approval_auto_deny">Auto Deny</string>
+    <string name="enabled_tools">Enabled Tools</string>
+    <string name="tool_read">Read file (read)</string>
+    <string name="tool_write">Write file (write)</string>
+    <string name="tool_bash">Shell command (bash)</string>
+    <string name="tool_grep">Search (grep)</string>
+    <string name="tool_glob">File search (glob)</string>
+    <string name="tool_task">Execute task (task)</string>
+    <string name="tool_patch">Apply patch (patch)</string>
+    <string name="tool_ls">List directory (ls)</string>
+
+    <!-- Permissions -->
+    <string name="permission_request">Permission Request</string>
+    <string name="permission_file_read">Read File</string>
+    <string name="permission_file_write">Write File</string>
+    <string name="permission_shell_command">Run Shell Command</string>
+    <string name="permission_network_request">Network Request</string>
+    <string name="permission_git_operation">Git Operation</string>
+    <string name="permission_package_install">Install Package</string>
+    <string name="permission_system_access">System Access</string>
+    <string name="allow">Allow</string>
+    <string name="deny">Deny</string>
+    <string name="always_allow">Always Allow</string>
+    <string name="always_deny">Always Deny</string>
+    <string name="permission_details">Details</string>
 </resources>

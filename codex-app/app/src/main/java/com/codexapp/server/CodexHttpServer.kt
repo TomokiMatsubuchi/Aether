@@ -102,18 +102,8 @@ class CodexHttpServer(private val context: Context) {
     }
 
     private fun getHome(): String {
-        val paths = listOf(
-            "/root/workspace",
-            "/storage/emulated/0",
-            context.filesDir.absolutePath
-        )
-        for (path in paths) {
-            val file = File(path)
-            if (file.exists() && file.isDirectory && file.canRead()) {
-                return path
-            }
-        }
-        return context.filesDir.absolutePath
+        // Always default to the Ubuntu workspace path used by codex/antigravity
+        return "/root/workspace"
     }
 
     // === HTTP handling ===

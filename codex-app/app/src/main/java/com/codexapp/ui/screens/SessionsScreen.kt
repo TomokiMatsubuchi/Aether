@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,9 +29,7 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SessionsScreen(onBack: () -> Unit) {
-    val ctx = LocalContext.current.applicationContext
-    val codexClient = remember { CodexClient(ctx) }
+fun SessionsScreen(codexClient: CodexClient, onBack: () -> Unit) {
     val sessions by codexClient.sessions.collectAsState()
 
     var showNewDialog by remember { mutableStateOf(false) }
@@ -42,7 +39,7 @@ fun SessionsScreen(onBack: () -> Unit) {
             codexClient = codexClient,
             onDismiss = { showNewDialog = false },
             onCreate = { title, workdir ->
-                codexClient.newSession(title = title, workdir = workdir)
+                codexClient.newSession(sessionTitle = title, workdir = workdir)
                 showNewDialog = false
                 onBack()
             }

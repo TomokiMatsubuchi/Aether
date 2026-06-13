@@ -1,0 +1,188 @@
+package com.codexapp.network
+
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.os.Environment
+import android.util.Log
+import com.codexapp.service.CodexServerService
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+
+import com.codexapp.R
+
+class ServerManager(private val context: Context) {
+    val isReady = MutableStateFlow(false)
+    val statusMessage = MutableStateFlow(context.getString(R.string.starting_server))
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val prefs = context.getSharedPreferences("codex_prefs", Context.MODE_PRIVATE)
+
+    fun start() {
+        scope.launch {
+            try {
+                updateServerInTermux()
+            } catch (e: Exception) {
+                Log.e("ServerManager", "Server file update failed: ${e.message}", e)
+            }
+        }
+    }
+
+    fun launchNodeServerAndWait() {
+        scope.launch {
+            if (isServerRunning(3000)) {
+                isReady.value = true
+                statusMessage.value = context.getString(R.string.server_ready)
+                return@launch
+            }
+            statusMessage.value = context.getString(R.string.starting_node_server)
+            try {
+                startNodeServerViaTermux()
+                waitForServer(3000, 45000)
+                isReady.value = true
+                statusMessage.value = context.getString(R.string.server_ready)
+            } catch (e: Exception) {
+                Log.w("ServerManager", "Node failed: ${e.message}")
+                startFallbackServer()
+            }
+        }
+    }
+
+    private suspend fun startFallbackServer() {
+        try {
+            statusMessage.value = context.getString(R.string.starting_fallback_server)
+            CodexServerService.startService(context)
+            waitForServer(3001, 15000)
+            prefs.edit().putString("server_url", "http://127.0.0.1:3001").apply()
+            isReady.value = true
+            statusMessage.value = context.getString(R.string.server_ready_fallback)
+        } catch (e: Exception) {
+            isReady.value = false
+            statusMessage.value = context.getString(R.string.server_error, e.message ?: "Unknown error")
+        }
+    }
+
+    private fun updateServerInTermux() {
+        try {
+            val downloadsDir = File(Environment.getExternalStorageDirectory(), "Download/codex_server_update")
+            downloadsDir.mkdirs()
+            File(downloadsDir, "index.js").writeText(
+                context.assets.open("server/index.js").bufferedReader().use { it.readText() }
+            )
+            File(downloadsDir, "package.json").writeText(
+                context.assets.open("server/package.json").bufferedReader().use { it.readText() }
+            )
+            val copyIntent = Intent().apply {
+                component = ComponentName("com.termux", "com.termux.app.RunCommandService")
+                action = "com.termux.RUN_COMMAND"
+                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
+                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "cp -f /storage/emulated/0/Download/codex_server_update/* /data/data/com.termux/files/usr/var/lib/proot-distro/installed-rootfs/ubuntu/root/workspace/session_apps/codex-app/server/ 2>/dev/null; echo copied >> /sdcard/Download/codex_probe.log"))
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+            }
+            startTermuxService(copyIntent)
+        } catch (e: Exception) {
+            Log.e("ServerManager", "Failed to update server in Termux: ${e.message}", e)
+        }
+    }
+
+    private fun startNodeServerViaTermux() {
+        val probeTag = "[codex-probe]"
+        runTermuxCommand("echo '$probeTag termux bash works' >> /sdcard/Download/codex_probe.log", "termux-bash-probe")
+        runTermuxCommand("/data/data/com.termux/files/usr/bin/proot-distro login ubuntu -- bash -lc 'echo \"$probeTag proot works\" >> /sdcard/Download/codex_probe.log'", "proot-probe")
+        runTermuxCommand("/data/data/com.termux/files/usr/bin/proot-distro login ubuntu -- bash -lc 'echo \"$probeTag proot log write\" >> /sdcard/Download/codex_server.log'", "proot-log-probe")
+        runTermuxCommand("/data/data/com.termux/files/usr/bin/proot-distro login ubuntu -- bash -lc 'ls -la /root/workspace/session_apps/codex-app/server/ >> /sdcard/Download/codex_probe.log 2>&1'", "proot-ls")
+
+        val scriptFile = File(Environment.getExternalStorageDirectory(), "Download/codex_server_update/start_codex.sh")
+        scriptFile.writeText(SERVER_START_SCRIPT)
+
+        val copyAndRun = """
+            SRC="/storage/emulated/0/Download/codex_server_update/start_codex.sh"
+            TARGET="/data/data/com.termux/files/usr/var/lib/proot-distro/installed-rootfs/ubuntu/root/workspace/session_apps/codex-app/server/start_codex.sh"
+            mkdir -p "$(dirname "${'$'}TARGET")"
+            cp -f "${'$'}SRC" "${'$'}TARGET" && echo '$probeTag copy ok' >> /sdcard/Download/codex_probe.log || { echo '$probeTag copy failed' >> /sdcard/Download/codex_probe.log; exit 1; }
+            ls -la "${'$'}TARGET" >> /sdcard/Download/codex_probe.log 2>&1
+            /data/data/com.termux/files/usr/bin/proot-distro login ubuntu -- bash /root/workspace/session_apps/codex-app/server/start_codex.sh
+        """.trimIndent().replace("\n", " ")
+        runTermuxCommand(copyAndRun, "node-start")
+    }
+
+    private fun runTermuxCommand(command: String, label: String) {
+        try {
+            val intent = Intent().apply {
+                component = ComponentName("com.termux", "com.termux.app.RunCommandService")
+                action = "com.termux.RUN_COMMAND"
+                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
+                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", command))
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+            }
+            startTermuxService(intent)
+            Log.i("ServerManager", "Sent $label intent: $command")
+        } catch (e: Exception) {
+            Log.e("ServerManager", "Failed to send $label intent: ${e.message}", e)
+        }
+    }
+
+    private fun startTermuxService(intent: Intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
+    }
+
+    private fun isServerRunning(port: Int): Boolean {
+        return try {
+            val conn = URL("http://127.0.0.1:$port/api/health").openConnection() as HttpURLConnection
+            conn.connectTimeout = 1000
+            conn.readTimeout = 1000
+            val code = conn.responseCode
+            conn.disconnect()
+            code == 200
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private suspend fun waitForServer(port: Int, timeoutMs: Long) {
+        withContext(Dispatchers.IO) {
+            val startTime = System.currentTimeMillis()
+            while (System.currentTimeMillis() - startTime < timeoutMs) {
+                if (isServerRunning(port)) return@withContext
+                delay(500)
+            }
+            throw Exception("Server on port $port did not start within ${timeoutMs / 1000}s")
+        }
+    }
+
+    companion object {
+        private const val SERVER_START_SCRIPT = """#!/bin/bash
+set +e
+LOG="/sdcard/Download/codex_server.log"
+echo "[codex-launch] starting at ${'$'}(date -Iseconds)" > "${'$'}LOG"
+pkill -f "node index.js" >/dev/null 2>&1
+sleep 1
+SERVER_DIR="/root/workspace/session_apps/codex-app/server"
+mkdir -p "${'$'}SERVER_DIR"
+cd "${'$'}SERVER_DIR" || { echo "[codex-launch] cd failed" >> "${'$'}LOG"; exit 1; }
+echo "[codex-launch] installing dependencies..." >> "${'$'}LOG"
+npm install --no-audit --no-fund >> "${'$'}LOG" 2>&1
+INSTALL_CODE=${'$'}?
+echo "[codex-launch] npm install exit code: ${'$'}INSTALL_CODE" >> "${'$'}LOG"
+if [ ${'$'}INSTALL_CODE -ne 0 ]; then
+    echo "[codex-launch] npm install failed, trying with node_modules check" >> "${'$'}LOG"
+    [ -d node_modules ] || exit 1
+fi
+echo "[codex-launch] starting node server..." >> "${'$'}LOG"
+setsid sh -c "nohup node index.js </dev/null >>\"${'$'}LOG\" 2>&1 &"
+sleep 2
+echo "[codex-launch] launched" >> "${'$'}LOG"
+"""
+    }
+}

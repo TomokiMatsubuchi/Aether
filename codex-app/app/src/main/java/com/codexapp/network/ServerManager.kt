@@ -19,10 +19,17 @@ class ServerManager(private val context: Context) {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val prefs = context.getSharedPreferences("codex_prefs", Context.MODE_PRIVATE)
+    private var startupJob: Job? = null
 
+    @Synchronized
     fun start() {
-        scope.launch {
+        if (startupJob?.isActive == true) {
+            Log.i("ServerManager", "Startup is already in progress, skipping start call.")
+            return
+        }
+        startupJob = scope.launch {
             try {
+                delay(5000)
                 Log.i("ServerManager", "Checking if Node.js server on port 3000 is already running...")
                 if (isServerRunning(3000)) {
                     Log.i("ServerManager", "Node.js server is already running, skipping startup.")
@@ -76,7 +83,7 @@ class ServerManager(private val context: Context) {
                     "com.termux.RUN_COMMAND_ARGUMENTS",
                     arrayOf(
                         "-c",
-                        "/data/data/com.termux/files/usr/bin/proot-distro login ubuntu -- bash -c 'source ~/.bashrc && cd /root/workspace/session_apps/codex-app/server && node index.js'"
+                        "pkill node || true; sleep 1; /data/data/com.termux/files/usr/bin/proot-distro login --no-kill-on-exit ubuntu -- bash -c 'source ~/.bashrc && cp /sdcard/Download/index.js /root/workspace/session_apps/codex-app/server/index.js || true && cd /root/workspace/session_apps/codex-app/server && exec node index.js >> /sdcard/Download/codex_server.log 2>&1'"
                     )
                 )
                 putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)

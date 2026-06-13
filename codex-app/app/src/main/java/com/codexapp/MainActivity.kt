@@ -39,6 +39,13 @@ class MainActivity : ComponentActivity() {
         codexClient = CodexClient(applicationContext)
 
         intent?.let { handleIntent(it) }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::serverManager.isInitialized) {
+            serverManager.start()
+        }
 
         setContent {
             CodexTheme {

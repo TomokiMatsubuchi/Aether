@@ -28,6 +28,13 @@ import com.codexapp.network.Session
 import com.codexapp.ui.screens.ChatScreen
 import com.codexapp.ui.screens.NewSessionDialog
 import com.codexapp.ui.screens.DiffViewerScreen
+import com.codexapp.ui.screens.SkillsScreen
+import com.codexapp.ui.screens.AgentConfigScreen
+import com.codexapp.ui.screens.SkillEditorScreen
+import com.codexapp.ui.screens.MarketplaceScreen
+import com.codexapp.network.Skill
+import com.codexapp.ui.components.PermissionDialog
+import com.codexapp.network.PermissionRequest
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -72,7 +79,19 @@ fun CodexNavHost(serverManager: ServerManager, codexClient: CodexClient) {
 
     val sessions by codexClient.sessions.collectAsState()
     val currentSessionId by codexClient.currentSessionId.collectAsState()
+    val pendingPermissions by codexClient.pendingPermissions.collectAsState()
     val context = LocalContext.current
+
+    // Show permission dialog when there are pending requests
+    val pendingPermission = pendingPermissions.firstOrNull { it.status == PermissionRequest.PermissionStatus.PENDING }
+    if (pendingPermission != null) {
+        PermissionDialog(
+            request = pendingPermission,
+            onRespond = { granted, remember ->
+                codexClient.respondToPermission(pendingPermission.id, granted, remember)
+            }
+        )
+    }
 
     LaunchedEffect(isServerReady) {
         if (isServerReady) {
@@ -80,6 +99,7 @@ fun CodexNavHost(serverManager: ServerManager, codexClient: CodexClient) {
             val savedUrl = prefs.getString("server_url", "http://127.0.0.1:3000") ?: "http://127.0.0.1:3000"
             codexClient.updateServerUrl(savedUrl)
             codexClient.checkConnection()
+            codexClient.loadAlwaysPermissions()
         }
     }
 
@@ -87,25 +107,65 @@ fun CodexNavHost(serverManager: ServerManager, codexClient: CodexClient) {
     val scope = rememberCoroutineScope()
     var showNewDialog by remember { mutableStateOf(false) }
     var currentScreen by remember { mutableStateOf("chat") }
+    var editingSkill by remember { mutableStateOf<Skill?>(null) }
 
     if (showNewDialog) {
         NewSessionDialog(
             codexClient = codexClient,
             onDismiss = { showNewDialog = false },
             onCreate = { title, workdir ->
-                codexClient.newSession(title = title, workdir = workdir)
+                codexClient.newSession(sessionTitle = title, workdir = workdir)
                 showNewDialog = false
             }
         )
     }
 
-    if (currentScreen == "diff") {
-        DiffViewerScreen(
-            codexClient = codexClient,
-            workdir = codexClient.getCurrentWorkdir(),
-            onBack = { currentScreen = "chat" }
-        )
-        return
+    when (currentScreen) {
+        "diff" -> {
+            DiffViewerScreen(
+                codexClient = codexClient,
+                workdir = codexClient.getCurrentWorkdir(),
+                onBack = { currentScreen = "chat" }
+            )
+            return
+        }
+        "skills" -> {
+            SkillsScreen(
+                codexClient = codexClient,
+                onNewSkill = {
+                    editingSkill = null
+                    currentScreen = "skill_editor"
+                },
+                onEditSkill = { skill ->
+                    editingSkill = skill
+                    currentScreen = "skill_editor"
+                },
+                onOpenMarketplace = {
+                    currentScreen = "marketplace"
+                },
+                onBack = { currentScreen = "chat" }
+            )
+            return
+        }
+        "skill_editor" -> {
+            SkillEditorScreen(
+                codexClient = codexClient,
+                skill = editingSkill,
+                onBack = { currentScreen = "skills" }
+            )
+            return
+        }
+        "marketplace" -> {
+            MarketplaceScreen(
+                codexClient = codexClient,
+                onBack = { currentScreen = "skills" }
+            )
+            return
+        }
+        "agent_config" -> {
+            AgentConfigScreen(codexClient = codexClient, onBack = { currentScreen = "chat" })
+            return
+        }
     }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
@@ -120,7 +180,6 @@ fun CodexNavHost(serverManager: ServerManager, codexClient: CodexClient) {
                         drawerContentColor = MaterialTheme.colorScheme.onSurface
                     ) {
                         Column(modifier = Modifier.fillMaxHeight()) {
-                            // Upper content - take maximum space
                             Column(modifier = Modifier.weight(1f)) {
                                 Column(
                                     modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 8.dp)
@@ -202,11 +261,41 @@ fun CodexNavHost(serverManager: ServerManager, codexClient: CodexClient) {
                                 }
                             }
 
-                            // Lower content - Server Settings pushed to the bottom
+                            // Bottom navigation items
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             )
+
+                            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                                DrawerMenuItem(
+                                    icon = Icons.Default.Extension,
+                                    label = stringResource(R.string.skills),
+                                    onClick = {
+                                        currentScreen = "skills"
+                                        scope.launch { drawerState.close() }
+                                    }
+                                )
+
+                                DrawerMenuItem(
+                                    icon = Icons.Default.SmartToy,
+                                    label = stringResource(R.string.agent_config),
+                                    onClick = {
+                                        currentScreen = "agent_config"
+                                        scope.launch { drawerState.close() }
+                                    }
+                                )
+                                DrawerMenuItem(
+                                    icon = Icons.Default.History,
+                                    label = stringResource(R.string.diff_viewer_title),
+                                    onClick = {
+                                        currentScreen = "diff"
+                                        scope.launch { drawerState.close() }
+                                    }
+                                )
+                            }
+
+                            // Server config at the very bottom
                             ServerConfigSection(codexClient = codexClient)
                         }
                     }
@@ -228,6 +317,34 @@ fun CodexNavHost(serverManager: ServerManager, codexClient: CodexClient) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun DrawerMenuItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Icon(
+            icon, null,
+            Modifier.size(22.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            label,
+            fontSize = 15.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -258,38 +375,31 @@ fun SessionDrawerItem(
         )
     }
 
-    Surface(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = if (isSelected)
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-        else MaterialTheme.colorScheme.surface,
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
-        onClick = onClick
+            .padding(vertical = 4.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        ),
+        shape = MaterialTheme.shapes.medium
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     session.title,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    fontSize = 14.sp,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 IconButton(
                     onClick = { showDelete = true },
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 ) {
                     Icon(
                         Icons.Default.Close,
@@ -329,13 +439,13 @@ fun SessionDrawerItem(
 fun ServerConfigSection(codexClient: CodexClient, modifier: Modifier = Modifier) {
     val serverUrl by codexClient.serverUrl.collectAsState()
     val isConnected by codexClient.isConnected.collectAsState()
-    
+
     var urlInput by remember { mutableStateOf(serverUrl) }
-    
+
     LaunchedEffect(serverUrl) {
         urlInput = serverUrl
     }
-    
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -371,7 +481,7 @@ fun ServerConfigSection(codexClient: CodexClient, modifier: Modifier = Modifier)
                         color = if (isConnected) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
                     )
                 }
-                
+
                 IconButton(
                     onClick = { codexClient.checkConnection() },
                     modifier = Modifier.size(24.dp)
@@ -384,7 +494,7 @@ fun ServerConfigSection(codexClient: CodexClient, modifier: Modifier = Modifier)
                     )
                 }
             }
-            
+
             OutlinedTextField(
                 value = urlInput,
                 onValueChange = { urlInput = it },
@@ -419,4 +529,3 @@ fun ServerConfigSection(codexClient: CodexClient, modifier: Modifier = Modifier)
         }
     }
 }
-

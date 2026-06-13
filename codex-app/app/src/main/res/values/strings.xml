@@ -95,4 +95,57 @@
     <string name="file_added_tag">追加</string>
     <string name="file_deleted_tag">削除</string>
     <string name="loading_diff_text">差分を取得中…</string>
+
+    <!-- Skills -->
+    <string name="skills">スキル</string>
+    <string name="no_skills_yet">スキルがありません</string>
+    <string name="skills_desc">スキルを追加してAetherの機能を拡張できます</string>
+    <string name="add_skill">スキルを追加</string>
+    <string name="new_skill">新しいスキル</string>
+    <string name="edit_skill">スキルを編集</string>
+    <string name="skill_name">スキル名</string>
+    <string name="skill_description">説明</string>
+    <string name="skill_author">作者</string>
+    <string name="skill_version">バージョン</string>
+    <string name="skill_tags_hint">タグ (カンマ区切り)</string>
+    <string name="delete_skill_title">スキルを削除しますか？</string>
+    <string name="delete_skill_confirm">「%1$s」は完全に削除されます。</string>
+    <string name="save">保存</string>
+
+    <!-- Agent Config -->
+    <string name="agent_config">エージェント設定</string>
+    <string name="model">モデル</string>
+    <string name="select_model">モデルを選択</string>
+    <string name="temperature">温度 (Temperature)</string>
+    <string name="max_tokens">最大トークン数</string>
+    <string name="system_prompt">システムプロンプト</string>
+    <string name="system_prompt_hint">システムプロンプトを入力してください</string>
+    <string name="approval_mode">承認モード</string>
+    <string name="approval_ask">毎回確認する</string>
+    <string name="approval_auto_approve">自動承認</string>
+    <string name="approval_auto_deny">自動拒否</string>
+    <string name="enabled_tools">有効なツール</string>
+    <string name="tool_read">ファイル読み取り (read)</string>
+    <string name="tool_write">ファイル書き込み (write)</string>
+    <string name="tool_bash">シェルコマンド (bash)</string>
+    <string name="tool_grep">検索 (grep)</string>
+    <string name="tool_glob">ファイル検索 (glob)</string>
+    <string name="tool_task">タスク実行 (task)</string>
+    <string name="tool_patch">パッチ適用 (patch)</string>
+    <string name="tool_ls">ディレクトリ一覧 (ls)</string>
+
+    <!-- Permissions -->
+    <string name="permission_request">権限リクエスト</string>
+    <string name="permission_file_read">ファイル読み取り</string>
+    <string name="permission_file_write">ファイル書き込み</string>
+    <string name="permission_shell_command">シェルコマンド実行</string>
+    <string name="permission_network_request">ネットワークリクエスト</string>
+    <string name="permission_git_operation">Git操作</string>
+    <string name="permission_package_install">パッケージインストール</string>
+    <string name="permission_system_access">システムアクセス</string>
+    <string name="allow">許可</string>
+    <string name="deny">拒否</string>
+    <string name="always_allow">常に許可</string>
+    <string name="always_deny">常に拒否</string>
+    <string name="permission_details">詳細</string>
 </resources>

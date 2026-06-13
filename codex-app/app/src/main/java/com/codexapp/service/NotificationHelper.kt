@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.codexapp.MainActivity
+import com.codexapp.R
 
 class NotificationHelper(private val context: Context) {
     companion object {
@@ -50,7 +51,7 @@ class NotificationHelper(private val context: Context) {
                 putExtra("SESSION_ID", sessionId)
             }
         }
-        
+
         val pendingIntent = PendingIntent.getActivity(
             context,
             0,
@@ -73,5 +74,19 @@ class NotificationHelper(private val context: Context) {
         } catch (_: SecurityException) {
             // Avoid crash in case permission is revoked at runtime
         }
+    }
+
+    fun showResponseComplete(sessionTitle: String) {
+        showNotification(
+            context.getString(R.string.notification_response_complete_title),
+            context.getString(R.string.notification_response_complete_desc, sessionTitle)
+        )
+    }
+
+    fun showResponseError(sessionTitle: String, errorMessage: String) {
+        showNotification(
+            context.getString(R.string.notification_response_error_title),
+            context.getString(R.string.notification_response_error_desc, sessionTitle, errorMessage)
+        )
     }
 }

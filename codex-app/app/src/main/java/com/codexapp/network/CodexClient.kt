@@ -1,6 +1,7 @@
 package com.codexapp.network
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.codexapp.R
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,21 +57,39 @@ class CodexClient(private val context: Context) {
     val isConnected = MutableStateFlow(false)
     val streamText = MutableStateFlow("")
     val currentSessionId = MutableStateFlow("default")
+    val skills = MutableStateFlow<List<Skill>>(emptyList())
+    val pendingPermissions = MutableStateFlow<List<PermissionRequest>>(emptyList())
+    val agentConfig = MutableStateFlow(AgentConfig())
 
     private val prefs = context.getSharedPreferences("codex_prefs", Context.MODE_PRIVATE)
     val serverUrl = MutableStateFlow(run {
         prefs.getString("server_url", null) ?: "http://127.0.0.1:3000"
     })
-    
+
+    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+        if (key == "server_url") {
+            val newUrl = sharedPreferences.getString("server_url", null) ?: "http://127.0.0.1:3000"
+            if (serverUrl.value != newUrl) {
+                serverUrl.value = newUrl
+                checkConnection()
+            }
+        }
+    }
+
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val sessionsDir = File(context.filesDir, "sessions")
+    private val skillsDir = File(context.filesDir, "skills")
     private var streamJob: Job? = null
     private val notificationHelper = NotificationHelper(context)
 
     init {
         sessionsDir.mkdirs()
+        skillsDir.mkdirs()
+        prefs.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
         loadSessions()
         loadMessages("default")
+        loadSkills()
+        loadAgentConfig()
         checkConnection()
     }
 
@@ -85,6 +104,7 @@ class CodexClient(private val context: Context) {
     }
 
     private fun sessionFile(id: String) = File(sessionsDir, "$id.json")
+    private fun skillFile(id: String) = File(skillsDir, "$id.json")
 
     private fun loadSessions() {
         val list = sessionsDir.listFiles()
@@ -148,273 +168,19 @@ class CodexClient(private val context: Context) {
                 })
             }
             obj.put("messages", arr)
+            obj.put("lastMessage", messages.value.lastOrNull()?.content ?: "")
             obj.put("updatedAt", System.currentTimeMillis())
-            obj.put("lastMessage", messages.value.lastOrNull { it.role == "user" }?.content ?: "")
             file.writeText(obj.toString(2))
+            loadSessions()
         } catch (_: Exception) {}
     }
 
-    fun getSessionsList(): List<Session> {
-        return try {
-            val list = sessionsDir.listFiles()
-                ?.filter { it.extension == "json" }
-                ?.mapNotNull { file ->
-                    try {
-                        val obj = JSONObject(file.readText())
-                        Session(
-                            id = obj.getString("id"),
-                            title = obj.optString("title", context.getString(R.string.new_session)),
-                            workdir = obj.optString("workdir", "/root/workspace"),
-                            lastMessage = obj.optString("lastMessage", ""),
-                            timestamp = obj.optLong("updatedAt", file.lastModified()),
-                            engine = obj.optString("engine", "codex")
-                        )
-                    } catch (_: Exception) { null }
-                }
-                ?.sortedByDescending { it.timestamp }
-            list ?: emptyList()
-        } catch (_: Exception) { emptyList() }
-    }
-
-    private fun autoTitle() = messages.value.firstOrNull { it.role == "user" }?.content?.take(50) ?: context.getString(R.string.new_session)
-    private fun getSessionTitle(id: String) = try { JSONObject(sessionFile(id).readText()).optString("title", context.getString(R.string.new_session)) } catch (_: Exception) { context.getString(R.string.new_session) }
-    private fun getSessionWorkdir(id: String) = try { JSONObject(sessionFile(id).readText()).optString("workdir", "/root/workspace") } catch (_: Exception) { "/root/workspace" }
-    private fun getSessionEngine(id: String) = try { JSONObject(sessionFile(id).readText()).optString("engine", "codex") } catch (_: Exception) { "codex" }
-
-    fun getCurrentSessionId() = currentSessionId.value
-    fun getCurrentWorkdir(): String {
-        val session = sessions.value.find { it.id == currentSessionId.value }
-        return session?.workdir ?: "/root/workspace"
-    }
-
-    fun checkConnection() {
-        scope.launch {
-            try {
-                val conn = URL("${serverUrl.value}/api/health").openConnection() as HttpURLConnection
-                conn.connectTimeout = 3000; conn.readTimeout = 3000
-                val code = conn.responseCode
-                conn.disconnect()
-                isConnected.value = code == 200
-            } catch (_: Exception) { isConnected.value = false }
-        }
-    }
-
-    suspend fun browseWorkspace(dir: String?): WorkspaceDir {
-        return withContext(Dispatchers.IO) {
-            val url = if (dir != null) "${serverUrl.value}/api/workspaces?dir=${java.net.URLEncoder.encode(dir, "UTF-8")}"
-            else "${serverUrl.value}/api/workspaces"
-            val conn = URL(url).openConnection() as HttpURLConnection
-            conn.connectTimeout = 3000; conn.readTimeout = 3000
-            val body = if (conn.responseCode == 200) conn.inputStream.bufferedReader().readText() else "{}"
-            conn.disconnect()
-            val obj = JSONObject(body)
-            val subdirsArr = obj.optJSONArray("subdirs") ?: JSONArray()
-            val subdirs = (0 until subdirsArr.length()).map { i ->
-                val s = subdirsArr.getJSONObject(i)
-                WorkspaceDir(path = s.getString("path"), name = s.getString("name"), subdirs = emptyList())
-            }
-            WorkspaceDir(path = obj.getString("path"), name = obj.getString("name"), subdirs = subdirs)
-        }
-    }
-
-    suspend fun getGitStatus(dir: String): GitStatus {
-        return withContext(Dispatchers.IO) {
-            try {
-                val url = "${serverUrl.value}/api/git/status?dir=${java.net.URLEncoder.encode(dir, "UTF-8")}"
-                val conn = URL(url).openConnection() as HttpURLConnection
-                conn.connectTimeout = 3000; conn.readTimeout = 3000
-                val body = if (conn.responseCode == 200) conn.inputStream.bufferedReader().readText() else "{}"
-                conn.disconnect()
-                val obj = JSONObject(body)
-                val isGit = obj.optBoolean("isGit", false)
-                val filesArr = obj.optJSONArray("files") ?: JSONArray()
-                val files = (0 until filesArr.length()).map { i ->
-                    val f = filesArr.getJSONObject(i)
-                    GitFile(path = f.getString("path"), status = f.getString("status"))
-                }
-                GitStatus(isGit = isGit, files = files)
-            } catch (e: Exception) {
-                GitStatus(isGit = false, files = emptyList())
-            }
-        }
-    }
-
-    suspend fun gitInit(dir: String): Boolean {
-        return withContext(Dispatchers.IO) {
-            try {
-                val json = JSONObject().apply { put("dir", dir) }
-                val conn = URL("${serverUrl.value}/api/git/init").openConnection() as HttpURLConnection
-                conn.connectTimeout = 3000; conn.readTimeout = 3000
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "application/json")
-                conn.doOutput = true
-                OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
-                val code = conn.responseCode
-                conn.disconnect()
-                code in 200..299
-            } catch (_: Exception) {
-                false
-            }
-        }
-    }
-
-    suspend fun getGitDiff(dir: String, file: String?): String {
-        return withContext(Dispatchers.IO) {
-            try {
-                val fileParam = if (file != null) "&file=${java.net.URLEncoder.encode(file, "UTF-8")}" else ""
-                val url = "${serverUrl.value}/api/git/diff?dir=${java.net.URLEncoder.encode(dir, "UTF-8")}$fileParam"
-                val conn = URL(url).openConnection() as HttpURLConnection
-                conn.connectTimeout = 3000; conn.readTimeout = 5000
-                val body = if (conn.responseCode == 200) conn.inputStream.bufferedReader().readText() else "{}"
-                conn.disconnect()
-                JSONObject(body).optString("diff", "")
-            } catch (e: Exception) {
-                ""
-            }
-        }
-    }
-
-    fun sendMessage(content: String, imagePath: String? = null) {
-        // Cancel any existing stream
-        streamJob?.cancel()
-
-        messages.value = messages.value + ChatMessage(role = "user", content = content, imagePath = imagePath)
-        isLoading.value = true
-        streamText.value = ""
-
-        streamJob = scope.launch {
-            var conn: HttpURLConnection? = null
-            try {
-                // Use SSE streaming endpoint
-                val urlConnection = URL("${serverUrl.value}/api/chat/stream").openConnection() as HttpURLConnection
-                conn = urlConnection
-                conn.connectTimeout = 5000
-                conn.readTimeout = 120000
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "application/json")
-                conn.setRequestProperty("Accept", "text/event-stream")
-                conn.doOutput = true
-
-                val json = JSONObject().apply {
-                    put("message", content)
-                    put("sessionId", currentSessionId.value)
-                    if (imagePath != null) {
-                        val pair = getBase64FromUri(imagePath)
-                        if (pair != null) {
-                            put("imageBase64", pair.first)
-                            put("mimeType", pair.second)
-                        }
-                    }
-                }
-                OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
-
-                if (conn.responseCode == 200) {
-                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                    var line: String?
-                    var accumulated = ""
-
-                    while (reader.readLine().also { line = it } != null) {
-                        val l = line ?: continue
-                        if (l.startsWith("data: ")) {
-                            val data = l.removePrefix("data: ")
-                            try {
-                                val obj = JSONObject(data)
-                                if (obj.has("chunk")) {
-                                    accumulated += obj.getString("chunk")
-                                    streamText.value = accumulated
-                                } else if (obj.has("done")) {
-                                    // Finalize
-                                    messages.value = messages.value + ChatMessage(
-                                        role = "assistant",
-                                        content = accumulated.ifBlank { context.getString(R.string.no_output) }
-                                    )
-                                    streamText.value = ""
-                                    saveSession(currentSessionId.value)
-                                    loadSessions()
-
-                                    val sessionTitle = getSessionTitle(currentSessionId.value)
-                                    notificationHelper.showNotification(
-                                        title = context.getString(R.string.notification_response_complete_title),
-                                        message = context.getString(R.string.notification_response_complete_desc, sessionTitle),
-                                        sessionId = currentSessionId.value
-                                    )
-                                } else if (obj.has("error")) {
-                                    val errorMsg = obj.getString("error")
-                                    messages.value = messages.value + ChatMessage(
-                                        role = "system",
-                                        content = context.getString(R.string.error_prefix, errorMsg)
-                                    )
-                                    streamText.value = ""
-
-                                    val sessionTitle = getSessionTitle(currentSessionId.value)
-                                    notificationHelper.showNotification(
-                                        title = context.getString(R.string.notification_response_error_title),
-                                        message = context.getString(R.string.notification_response_error_desc, sessionTitle, errorMsg),
-                                        sessionId = currentSessionId.value
-                                    )
-                                }
-                            } catch (_: Exception) {}
-                        }
-                    }
-                    reader.close()
-                } else {
-                    val errBody = conn.errorStream?.bufferedReader()?.readText() ?: "Unknown error"
-                    messages.value = messages.value + ChatMessage(role = "system", content = context.getString(R.string.server_error_prefix, errBody))
-
-                    val sessionTitle = getSessionTitle(currentSessionId.value)
-                    notificationHelper.showNotification(
-                        title = context.getString(R.string.notification_server_error_title),
-                        message = context.getString(R.string.notification_response_error_desc, sessionTitle, errBody),
-                        sessionId = currentSessionId.value
-                    )
-                }
-            } catch (e: CancellationException) {
-                // Stream was cancelled, that's OK
-            } catch (e: Exception) {
-                val errorMsg = e.message ?: context.getString(R.string.connection_failed)
-                messages.value = messages.value + ChatMessage(
-                    role = "system",
-                    content = context.getString(R.string.conn_error_desc, errorMsg)
-                )
-
-                val sessionTitle = getSessionTitle(currentSessionId.value)
-                notificationHelper.showNotification(
-                    title = context.getString(R.string.notification_conn_error_title),
-                    message = context.getString(R.string.notification_response_error_desc, sessionTitle, errorMsg),
-                    sessionId = currentSessionId.value
-                )
-            } finally {
-                conn?.disconnect()
-                isLoading.value = false
-            }
-        }
-    }
-
-    fun cancelStream() {
-        streamJob?.cancel()
-        streamJob = null
-        isLoading.value = false
-        if (streamText.value.isNotBlank()) {
-            messages.value = messages.value + ChatMessage(
-                role = "assistant",
-                content = streamText.value
-            )
-            streamText.value = ""
-            saveSession(currentSessionId.value)
-            loadSessions()
-        }
-    }
-
     fun switchSession(sessionId: String) {
-        if (sessionId == currentSessionId.value) return
-        streamJob?.cancel()
         currentSessionId.value = sessionId
         loadMessages(sessionId)
-        streamText.value = ""
     }
 
-    fun newSession(title: String? = null, workdir: String = "/root/workspace") {
-        val sessionTitle = if (title.isNullOrBlank()) context.getString(R.string.new_session) else title
+    fun newSession(sessionTitle: String = "", workdir: String = "/root/workspace") {
         scope.launch {
             try {
                 val json = JSONObject().apply { put("title", sessionTitle); put("workdir", workdir) }
@@ -490,6 +256,464 @@ class CodexClient(private val context: Context) {
         }
     }
 
+    suspend fun browseWorkspace(dir: String?): WorkspaceDir {
+        return withContext(Dispatchers.IO) {
+            try {
+                val baseUrl = "${serverUrl.value}/api/workspaces"
+                val url = if (dir != null) "$baseUrl?dir=$dir" else baseUrl
+                val conn = URL(url).openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000; conn.readTimeout = 5000
+                val input = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+                parseWorkspaceDir(JSONObject(input))
+            } catch (e: Exception) {
+                android.util.Log.e("CodexClient", "browseWorkspace failed: ${e.message}", e)
+                WorkspaceDir("/root/workspace", "workspace", emptyList())
+            }
+        }
+    }
+
+    private fun parseWorkspaceDir(obj: JSONObject): WorkspaceDir {
+        val subdirs = obj.optJSONArray("subdirs")?.let { arr ->
+            (0 until arr.length()).map { parseWorkspaceDir(arr.getJSONObject(it)) }
+        } ?: emptyList()
+        return WorkspaceDir(
+            path = obj.getString("path"),
+            name = obj.getString("name"),
+            subdirs = subdirs
+        )
+    }
+
+    fun cancelStream() {
+        streamJob?.cancel()
+        streamJob = null
+    }
+
+    fun sendMessage(text: String, imagePath: String? = null) {
+        if (text.isBlank() && imagePath == null) return
+        isLoading.value = true
+        streamText.value = ""
+        streamJob?.cancel()
+        streamJob = scope.launch {
+            val sessionId = currentSessionId.value
+            val workdir = sessions.value.find { it.id == sessionId }?.workdir ?: "/root/workspace"
+            val engine = sessions.value.find { it.id == sessionId }?.engine ?: "codex"
+
+            val userMessage = ChatMessage(role = "user", content = text, imagePath = imagePath)
+            messages.value = messages.value + userMessage
+            saveSession(sessionId)
+
+            try {
+                val url = URL("${serverUrl.value}/api/chat/stream")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 10000
+                conn.readTimeout = 0
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Accept", "text/event-stream")
+                conn.setRequestProperty("Cache-Control", "no-cache")
+                conn.doOutput = true
+
+                val requestBody = JSONObject().apply {
+                    put("message", text)
+                    put("workdir", workdir)
+                    put("engine", engine)
+                    if (imagePath != null) put("imagePath", imagePath)
+                }.toString()
+
+                OutputStreamWriter(conn.outputStream).use { it.write(requestBody) }
+
+                if (conn.responseCode !in 200..299) {
+                    val err = conn.errorStream?.bufferedReader()?.readText() ?: conn.responseMessage
+                    throw Exception("Server error: $err")
+                }
+
+                val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                var fullResponse = ""
+
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    if (line.startsWith("data: ")) {
+                        val data = line.substring(6)
+                        if (data == "[DONE]") break
+                        try {
+                            val json = JSONObject(data)
+                            when {
+                                json.has("chunk") -> {
+                                    val chunk = json.getString("chunk")
+                                    fullResponse += chunk
+                                    streamText.value = fullResponse
+                                }
+                                json.has("done") -> break
+                                json.has("error") -> throw Exception(json.getString("error"))
+                                json.has("permission_request") -> {
+                                    handlePermissionRequest(json.getJSONObject("permission_request"))
+                                }
+                            }
+                        } catch (e: Exception) {
+                            // Ignore parse errors for non-fatal lines
+                        }
+                    }
+                }
+
+                reader.close()
+                conn.disconnect()
+
+                val assistantMessage = ChatMessage(role = "assistant", content = fullResponse.ifBlank { "(no output)" })
+                messages.value = messages.value + assistantMessage
+                saveSession(sessionId)
+
+                val sessionTitle = sessions.value.find { it.id == sessionId }?.title ?: "Session"
+                notificationHelper.showResponseComplete(sessionTitle)
+
+            } catch (e: Exception) {
+                val errorMsg = context.getString(R.string.error_prefix, e.message ?: "Unknown error")
+                val errorMessage = ChatMessage(role = "system", content = errorMsg)
+                messages.value = messages.value + errorMessage
+                saveSession(sessionId)
+
+                val sessionTitle = sessions.value.find { it.id == sessionId }?.title ?: "Session"
+                notificationHelper.showResponseError(sessionTitle, e.message ?: "Unknown error")
+            } finally {
+                isLoading.value = false
+                streamText.value = ""
+            }
+        }
+    }
+
+    private fun handlePermissionRequest(json: JSONObject) {
+        try {
+            val request = PermissionRequest.fromJson(json)
+            val alwaysDecision = checkAlwaysPermission(request.type)
+            if (alwaysDecision != null) {
+                // Auto-respond to server using saved "always" decision
+                respondToPermission(request.id, alwaysDecision, remember = true)
+                return
+            }
+            val current = pendingPermissions.value
+            pendingPermissions.value = current + request
+        } catch (_: Exception) {}
+    }
+
+    fun applyAutoResolvedPermission(json: JSONObject) {
+        // For "always" decisions, just keep client state in sync
+        try {
+            val request = PermissionRequest.fromJson(json)
+            val current = pendingPermissions.value
+            pendingPermissions.value = current + request
+        } catch (_: Exception) {}
+    }
+
+    fun loadAlwaysPermissions() {
+        scope.launch {
+            try {
+                val conn = URL("${serverUrl.value}/api/permissions/always").openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000; conn.readTimeout = 3000
+                val text = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+                if (text.isNotBlank()) {
+                    val obj = JSONObject(text)
+                    val arr = obj.optJSONArray("always")
+                    if (arr != null) {
+                        val saved = mutableMapOf<String, Boolean>()
+                        for (i in 0 until arr.length()) {
+                            val item = arr.getJSONObject(i)
+                            saved[item.getString("type")] = item.getBoolean("granted")
+                        }
+                        prefs.edit().putString("always_permissions", JSONObject(saved as Map<String, *>).toString()).apply()
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun checkAlwaysPermission(type: PermissionRequest.PermissionType): Boolean? {
+        // Returns: true if always granted, false if always denied, null if no rule
+        val json = prefs.getString("always_permissions", "") ?: ""
+        if (json.isBlank()) return null
+        return try {
+            val obj = JSONObject(json)
+            if (obj.has(type.name)) obj.getBoolean(type.name) else null
+        } catch (_: Exception) { null }
+    }
+
+    fun setAlwaysPermission(type: PermissionRequest.PermissionType, granted: Boolean) {
+        val json = prefs.getString("always_permissions", "") ?: ""
+        val obj = try { JSONObject(json) } catch (_: Exception) { JSONObject() }
+        obj.put(type.name, granted)
+        prefs.edit().putString("always_permissions", obj.toString()).apply()
+    }
+
+    fun respondToPermission(requestId: String, granted: Boolean, remember: Boolean) {
+        val current = pendingPermissions.value
+        val targetType = current.find { it.id == requestId }?.type
+        val updated = current.mapNotNull { req ->
+            if (req.id == requestId) {
+                if (remember) {
+                    // Persist always-grant/deny decision
+                    val finalStatus = if (granted)
+                        PermissionRequest.PermissionStatus.GRANTED_ALWAYS
+                    else
+                        PermissionRequest.PermissionStatus.DENIED_ALWAYS
+                    PermissionRequest(
+                        id = req.id,
+                        type = req.type,
+                        title = req.title,
+                        description = req.description,
+                        details = req.details,
+                        timestamp = req.timestamp,
+                        status = finalStatus
+                    )
+                } else {
+                    // Non-remembered decisions are removed from the queue
+                    null
+                }
+            } else {
+                req
+            }
+        }
+        pendingPermissions.value = updated
+
+        if (remember && targetType != null) {
+            setAlwaysPermission(targetType, granted)
+        }
+
+        scope.launch {
+            try {
+                val conn = URL("${serverUrl.value}/api/permissions/$requestId/respond").openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000; conn.readTimeout = 3000
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                val response = JSONObject().apply {
+                    put("granted", granted)
+                    put("remember", remember)
+                }.toString()
+                OutputStreamWriter(conn.outputStream).use { it.write(response) }
+                conn.responseCode
+                conn.disconnect()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun checkConnection() {
+        scope.launch {
+            try {
+                val conn = URL("${serverUrl.value}/api/health").openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000; conn.readTimeout = 3000
+                isConnected.value = conn.responseCode == 200
+                conn.disconnect()
+            } catch (_: Exception) {
+                isConnected.value = false
+            }
+        }
+    }
+
+    fun getGitStatus(workdir: String): GitStatus {
+        return try {
+            val conn = URL("${serverUrl.value}/api/git/status?dir=$workdir").openConnection() as HttpURLConnection
+            conn.connectTimeout = 5000; conn.readTimeout = 5000
+            val input = conn.inputStream.bufferedReader().readText()
+            conn.disconnect()
+            val obj = JSONObject(input)
+            val files = obj.optJSONArray("files")?.let { arr ->
+                (0 until arr.length()).map { i ->
+                    val f = arr.getJSONObject(i)
+                    GitFile(f.getString("path"), f.getString("status"))
+                }
+            } ?: emptyList()
+            GitStatus(obj.getBoolean("isGit"), files)
+        } catch (_: Exception) {
+            GitStatus(false, emptyList())
+        }
+    }
+
+    fun getGitDiff(workdir: String, filePath: String?): String {
+        return try {
+            val url = "${serverUrl.value}/api/git/diff?dir=$workdir${if (filePath != null) "&file=$filePath" else ""}"
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 5000; conn.readTimeout = 5000
+            val input = conn.inputStream.bufferedReader().readText()
+            conn.disconnect()
+            JSONObject(input).getString("diff")
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    fun gitInit(workdir: String): Boolean {
+        return try {
+            val conn = URL("${serverUrl.value}/api/git/init").openConnection() as HttpURLConnection
+            conn.connectTimeout = 10000; conn.readTimeout = 10000
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.doOutput = true
+            OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("dir", workdir).toString()) }
+            val input = conn.inputStream.bufferedReader().readText()
+            conn.disconnect()
+            JSONObject(input).getBoolean("success")
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun loadSkills() {
+        val list = skillsDir.listFiles()
+            ?.filter { it.extension == "json" }
+            ?.mapNotNull { file ->
+                try {
+                    Skill.fromJson(JSONObject(file.readText()))
+                } catch (_: Exception) { null }
+            }
+            ?.sortedBy { it.name }
+            ?: emptyList()
+        skills.value = list
+    }
+
+    suspend fun getMarketplaceSkills(): List<Skill> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val conn = URL("${serverUrl.value}/api/marketplace/skills").openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000; conn.readTimeout = 5000
+                val text = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+                if (text.isNotBlank()) {
+                    val obj = JSONObject(text)
+                    val arr = obj.optJSONArray("skills") ?: JSONArray()
+                    (0 until arr.length()).map { i ->
+                        Skill.fromJson(arr.getJSONObject(i))
+                    }
+                } else emptyList()
+            } catch (e: Exception) {
+                android.util.Log.e("CodexClient", "getMarketplaceSkills failed: ${e.message}", e)
+                emptyList()
+            }
+        }
+    }
+
+    fun importSkillFromUrl(urlStr: String, onSuccess: (Skill) -> Unit, onError: (String) -> Unit) {
+        scope.launch {
+            try {
+                val conn = URL(urlStr).openConnection() as HttpURLConnection
+                conn.connectTimeout = 8000; conn.readTimeout = 8000
+                val content = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+                
+                if (content.isBlank()) {
+                    withContext(Dispatchers.Main) { onError("Downloaded content is empty") }
+                    return@launch
+                }
+                
+                val metadata = Skill.parseMetadataFromMd(content)
+                val skill = Skill(
+                    id = UUID.randomUUID().toString(),
+                    name = metadata.name,
+                    description = metadata.description,
+                    version = metadata.version,
+                    author = metadata.author,
+                    tags = metadata.tags,
+                    content = content,
+                    isEnabled = true
+                )
+                withContext(Dispatchers.Main) {
+                    onSuccess(skill)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    onError(e.message ?: "Failed to download skill")
+                }
+            }
+        }
+    }
+
+    fun installSkill(skill: Skill) {
+        skillFile(skill.id).writeText(skill.toJson().toString(2))
+        loadSkills()
+        scope.launch { syncSkillToServer(skill) }
+    }
+
+    fun uninstallSkill(skillId: String) {
+        skillFile(skillId).delete()
+        loadSkills()
+        scope.launch { deleteSkillFromServer(skillId) }
+    }
+
+    fun toggleSkill(skillId: String, enabled: Boolean) {
+        val file = skillFile(skillId)
+        if (file.exists()) {
+            try {
+                val skill = Skill.fromJson(JSONObject(file.readText())).copy(isEnabled = enabled)
+                file.writeText(skill.toJson().toString(2))
+                loadSkills()
+                scope.launch { syncSkillToServer(skill) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun syncSkillToServer(skill: Skill) {
+        try {
+            val conn = URL("${serverUrl.value}/api/skills").openConnection() as HttpURLConnection
+            conn.connectTimeout = 3000; conn.readTimeout = 3000
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.doOutput = true
+            OutputStreamWriter(conn.outputStream).use { it.write(skill.toJson().toString()) }
+            conn.responseCode
+            conn.disconnect()
+        } catch (_: Exception) {}
+    }
+
+    private fun deleteSkillFromServer(skillId: String) {
+        try {
+            val conn = URL("${serverUrl.value}/api/skills/$skillId").openConnection() as HttpURLConnection
+            conn.connectTimeout = 3000; conn.readTimeout = 3000
+            conn.requestMethod = "DELETE"
+            conn.responseCode
+            conn.disconnect()
+        } catch (_: Exception) {}
+    }
+
+    private fun loadAgentConfig() {
+        val jsonStr = prefs.getString("agent_config", "") ?: ""
+        if (jsonStr.isNotBlank()) {
+            try {
+                agentConfig.value = AgentConfig.fromJson(JSONObject(jsonStr))
+            } catch (_: Exception) {}
+        }
+        scope.launch { syncAgentConfigFromServer() }
+    }
+
+    private fun syncAgentConfigFromServer() {
+        try {
+            val conn = URL("${serverUrl.value}/api/agent/config").openConnection() as HttpURLConnection
+            conn.connectTimeout = 3000; conn.readTimeout = 3000
+            val text = conn.inputStream.bufferedReader().readText()
+            conn.disconnect()
+            if (text.isNotBlank()) {
+                val config = AgentConfig.fromJson(JSONObject(text))
+                agentConfig.value = config
+                prefs.edit().putString("agent_config", config.toJson().toString()).apply()
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun updateAgentConfig(config: AgentConfig) {
+        agentConfig.value = config
+        prefs.edit().putString("agent_config", config.toJson().toString()).apply()
+        scope.launch {
+            try {
+                val conn = URL("${serverUrl.value}/api/agent/config").openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000; conn.readTimeout = 3000
+                conn.requestMethod = "PUT"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                OutputStreamWriter(conn.outputStream).use { it.write(config.toJson().toString()) }
+                conn.responseCode
+                conn.disconnect()
+            } catch (_: Exception) {}
+        }
+    }
+
     fun copyImageToLocalStorage(uri: android.net.Uri): String? {
         return try {
             val imagesDir = File(context.filesDir, "chat_images")
@@ -510,24 +734,8 @@ class CodexClient(private val context: Context) {
         }
     }
 
-    private fun getBase64FromUri(path: String): Pair<String, String>? {
-        return try {
-            val file = File(path)
-            if (!file.exists()) return null
-            val bytes = file.readBytes()
-            val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-            val ext = file.extension.lowercase()
-            val mimeType = when (ext) {
-                "jpg", "jpeg" -> "image/jpeg"
-                "png" -> "image/png"
-                "gif" -> "image/gif"
-                "webp" -> "image/webp"
-                else -> "image/png"
-            }
-            Pair(base64, mimeType)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
+    fun getCurrentWorkdir(): String {
+        val currentId = currentSessionId.value
+        return sessions.value.find { it.id == currentId }?.workdir ?: "/root/workspace"
     }
 }

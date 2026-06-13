@@ -1420,3 +1420,42 @@ bwrap: Creating new namespace failed, likely because the kernel does not support
 [2026-06-12T14:19:20.052Z] Codex process closed with code 0
 [2026-06-12T14:20:17.182Z] POST http://127.0.0.1:3000/api/chat/stream 200 (27ms)
 [2026-06-12T14:21:38.994Z] Codex stdout chunk: }Received message from background task:\n[Task ID: 228a3d59-6dbb-4d9c-b4b5-347545bbe9db/task-38]\nStat
+[2026-06-13T01:58:19.506Z] Starting Codex Server...
+[2026-06-13T01:58:19.507Z] Node version: v22.16.0
+[2026-06-13T01:58:19.507Z] Server dir: /Users/tomozo/workspace/Aether/codex-app/server
+[2026-06-13T01:58:19.514Z] Loaded 19 session(s)
+[2026-06-13T01:58:40.626Z] Starting Codex Server...
+[2026-06-13T01:58:40.628Z] Node version: v22.16.0
+[2026-06-13T01:58:40.628Z] Server dir: /Users/tomozo/workspace/Aether/codex-app/server
+[2026-06-13T01:58:40.632Z] Loaded 19 session(s)
+[2026-06-13T01:58:49.333Z] Starting Codex Server...
+[2026-06-13T01:58:49.334Z] Node version: v22.16.0
+[2026-06-13T01:58:49.334Z] Server dir: /Users/tomozo/workspace/Aether/codex-app/server
+[2026-06-13T01:58:49.338Z] Loaded 19 session(s)
+[2026-06-13T01:59:54.731Z] Starting Codex Server...
+[2026-06-13T01:59:54.732Z] Node version: v22.16.0
+[2026-06-13T01:59:54.732Z] Server dir: /Users/tomozo/workspace/Aether/codex-app/server
+[2026-06-13T01:59:54.736Z] Loaded 19 session(s)
+[2026-06-13T01:59:54.739Z] Codex Server running on http://0.0.0.0:3005
+[2026-06-13T01:59:57.705Z] GET http://127.0.0.1:3005/api/health 200 (1ms)
+[2026-06-13T02:02:51.496Z] Starting Codex Server...
+[2026-06-13T02:02:51.497Z] Node version: v22.16.0
+[2026-06-13T02:02:51.497Z] Server dir: /Users/tomozo/workspace/Aether/codex-app/server
+[2026-06-13T02:02:51.501Z] Loaded 19 session(s)
+[2026-06-13T02:02:51.504Z] Codex Server running on http://0.0.0.0:3005
+[2026-06-13T02:02:54.469Z] GET http://127.0.0.1:3005/api/skills 404 (1ms)
+[2026-06-13T02:02:54.480Z] GET http://127.0.0.1:3005/api/agent/config 404 (0ms)
+[2026-06-13T02:06:49.040Z] Starting Codex Server...
+[2026-06-13T02:06:49.042Z] Node version: v22.16.0
+[2026-06-13T02:06:49.042Z] Server dir: /Users/tomozo/workspace/Aether/codex-app/server
+[2026-06-13T02:06:49.048Z] Loaded 19 session(s)
+[2026-06-13T02:06:49.052Z] Codex Server running on http://0.0.0.0:3005
+[2026-06-13T02:06:52.009Z] GET http://127.0.0.1:3005/api/skills 200 (0ms)
+[2026-06-13T02:06:52.020Z] GET http://127.0.0.1:3005/api/agent/config 200 (0ms)
+[2026-06-13T02:06:52.034Z] GET http://127.0.0.1:3005/api/permissions 200 (0ms)
+[2026-06-13T03:31:05.594Z] Starting Codex Server...
+[2026-06-13T03:31:05.596Z] Node version: v22.16.0
+[2026-06-13T03:31:05.596Z] Server dir: /Users/tomozo/workspace/Aether/codex-app/server
+[2026-06-13T03:31:05.599Z] Loaded 19 session(s)
+[2026-06-13T03:31:05.603Z] Codex Server running on http://0.0.0.0:3000
+[2026-06-13T03:31:08.589Z] GET http://127.0.0.1:3000/api/health 200 (1ms)
